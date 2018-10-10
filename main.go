@@ -9,9 +9,6 @@ import (
 	"github.com/empijei/cli/lg"
 )
 
-// MainStandalone parses its own flag and it is the funcion to be run when using
-// `wapty decode`. This behaves as a main and expects the "decode" parameter to
-// be removed from os.Args.
 func MainStandalone(args ...string) {
 	buf := takeInput(args)
 	sequence := strings.Split(flagCodeclist, ",")
@@ -35,7 +32,6 @@ func MainStandalone(args ...string) {
 // `encode` parameter) with the given `codec`. It returns the encoded/decoded string
 // or an error if the process failed.
 func DecodeEncode(buf string, encode bool, codec string) (out string, codecUsed string, err error) {
-
 	// Build list of available codecs
 	var codecNames []string
 	for _, cc := range codecs {

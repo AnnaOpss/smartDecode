@@ -20,8 +20,16 @@ func main() {
 	`)
 
 	flag.Parse()
-	buf := flag.Args()[0]
 
+	args := flag.Args()
+
+	// TODO: better handle help output
+	if len(args) != 1 {
+		lg.Error("Please provide a single string")
+		os.Exit(2)
+	}
+
+	buf := args[0]
 	sequence := strings.Split(flagCodeclist, ",")
 	for _, codec := range sequence {
 		//This is to avoid printing twice the final result

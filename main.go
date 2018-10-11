@@ -1,16 +1,27 @@
-package decode
+package main
 
 import (
+	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
 	"github.com/empijei/cli/lg"
 )
 
-func MainStandalone(args ...string) {
-	buf := takeInput(args)
+var flagEncode bool      // -encode
+var flagCodeclist string // -codec
+
+func main() {
+	flag.BoolVar(&flagEncode, "encode", false, "Sets the decoder to an encoder instead")
+	flag.StringVar(&flagCodeclist, "codec", "smart",
+		`Sets the decoder/encoder codec. Multiple codecs can be specified and comma separated:
+	they will be applied one on the output of the previous as in a pipeline.
+	`)
+
+	flag.Parse()
+	buf := flag.Args()[0]
+
 	sequence := strings.Split(flagCodeclist, ",")
 	for _, codec := range sequence {
 		//This is to avoid printing twice the final result
@@ -64,26 +75,4 @@ func DecodeEncode(buf string, encode bool, codec string) (out string, codecUsed 
 		out = c.Decode()
 	}
 	return
-}
-
-func takeInput(args []string) string {
-	stdininfo, err := os.Stdin.Stat()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error while connecting to stdin: %s\n", err.Error())
-	}
-	if err == nil && stdininfo.Mode()&os.ModeCharDevice == 0 {
-		//The input is a pipe, so I assume it is what I'm going to decode/encode
-		fmt.Fprintln(os.Stderr, "Reading from stdin...")
-		buf, err := ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error while reading from stdin: %s\n", err.Error())
-			os.Exit(2)
-		}
-		return string(buf)
-	}
-	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "Didn't find anything to decode/encode, exiting...")
-		os.Exit(2)
-	}
-	return args[0]
 }

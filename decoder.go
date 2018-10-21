@@ -12,7 +12,7 @@ var invalid = '�'
 
 // Pos is an integer that define a position inside a string
 type Pos int
-type itemType int
+type runType int
 
 func genInvalid(n int) (inv string) {
 	return strings.Repeat(string(invalid), n)

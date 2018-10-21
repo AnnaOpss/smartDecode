@@ -22,13 +22,13 @@ type Base32 struct {
 // nolint: gocyclo
 func NewB32CodecC(in string) CodecC {
 	const (
-		itemInvalid itemType = iota
+		itemInvalid runType = iota
 		itemAlphabet
 	)
 
 	// emit should write into output what was read up until this point
 	// and move l.start to l.pos
-	emit := func(d *decoder, t itemType) {
+	emit := func(d *decoder, t runType) {
 		token := d.input[d.start:d.pos]
 
 		var decodefunc func(string) []byte

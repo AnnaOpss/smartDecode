@@ -1,14 +1,14 @@
 package main
 
 import (
-	"bytes"
 	"encoding/base64"
+	"strings"
 )
 
 const b64Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-const b64Variant = "+/"
+const b64Standard = "+/"
 const b64Padding = "="
-const b64UrlVariant = "-_"
+const b64URL = "-_"
 
 const b64name = "b64"
 
@@ -23,36 +23,24 @@ type Base64 struct {
 // nolint: gocyclo
 func NewB64CodecC(in string) CodecC {
 	const (
-		itemInvalid itemType = iota
-		itemAlphabet
-		itemVariant
-		itemUrlVariant
+		runInvalid runType = iota
+		runAlphabet
+		runStandard
+		runUrl
 	)
 
-	ignorePadding := func(d *decoder, start Pos) {
-		for {
-			if d.peek() != '=' {
-				return
-			}
-			switch (d.pos - start) % 4 {
-			case 2, 3:
-				d.next()
-				d.ignore()
-
-			default:
-				return
-			}
-		}
-	}
-
 	// emit writes into output what was read up until this point and move l.start to l.pos
-	emit := func(d *decoder, t itemType) {
-		token := d.input[d.start:d.pos]
+	emit := func(d *decoder, t runType) {
+		token := d.input[d.start : d.pos-d.width]
+		if len(token) == 0 {
+			return
+		}
 
+		token = strings.TrimRight(token, b64Padding)
 		var decodefunc func(string) []byte
 
 		switch t {
-		case itemAlphabet, itemVariant:
+		case runAlphabet, runStandard:
 			decodefunc = func(in string) []byte {
 				if len(in) < 2 {
 					return []byte(genInvalid(len(in)))
@@ -65,7 +53,7 @@ func NewB64CodecC(in string) CodecC {
 				return buf
 			}
 
-		case itemUrlVariant:
+		case runUrl:
 			decodefunc = func(in string) []byte {
 				if len(in) < 2 {
 					return []byte(genInvalid(len(in)))
@@ -78,132 +66,94 @@ func NewB64CodecC(in string) CodecC {
 				return buf
 			}
 
-		case itemInvalid:
+		case runInvalid:
 			decodefunc = func(in string) []byte {
 				return []byte(genInvalid(len(in)))
 			}
 		}
 
 		d.out.Write(decodefunc(token))
-		d.start = d.pos
+		d.start = d.pos - d.width
 	}
 
 	var (
-		startState      stateFn
-		invalidState    stateFn
-		variantState    stateFn
-		alphabetState   stateFn
-		urlVariantState stateFn
+		startState    stateFn
+		standardState stateFn
+		alphabetState stateFn
+		urlState      stateFn
 	)
 
 	startState = func(d *decoder) stateFn {
-		switch n := d.peek(); {
-		case bytes.ContainsRune([]byte(b64Alphabet), n):
+		switch n := d.next(); {
+		case strings.ContainsRune(b64Alphabet, n):
+			emit(d, runInvalid)
 			return alphabetState
-		case bytes.ContainsRune([]byte(b64Variant), n):
-			return variantState
-		case bytes.ContainsRune([]byte(b64UrlVariant), n):
-			return urlVariantState
+
+		case strings.ContainsRune(b64Standard, n):
+			emit(d, runInvalid)
+			return standardState
+
+		case strings.ContainsRune(b64URL, n):
+			emit(d, runInvalid)
+			return urlState
+
 		case n == eof:
+			emit(d, runInvalid)
 			return nil
+
 		default:
-			return invalidState
-		}
-	}
-
-	invalidState = func(d *decoder) stateFn {
-		for {
-			switch n := d.next(); {
-			case bytes.ContainsRune([]byte(b64Alphabet), n):
-				d.backup()
-				emit(d, itemInvalid)
-				return alphabetState
-
-			case bytes.ContainsRune([]byte(b64Variant), n):
-				d.backup()
-				emit(d, itemInvalid)
-				return variantState
-
-			case bytes.ContainsRune([]byte(b64UrlVariant), n):
-				d.backup()
-				emit(d, itemInvalid)
-				return urlVariantState
-
-			case n == eof:
-				emit(d, itemInvalid)
-				return nil
-			}
+			return startState
 		}
 	}
 
 	alphabetState = func(d *decoder) stateFn {
-		for {
-			switch n := d.next(); {
-			case bytes.ContainsRune([]byte(b64Alphabet), n):
-				d.acceptRun(b64Alphabet)
-				continue
+		switch n := d.next(); {
+		case strings.ContainsRune(b64Alphabet+b64Padding, n):
+			return alphabetState
 
-			case bytes.ContainsRune([]byte(b64Variant), n):
-				d.backup()
-				return variantState
+		case strings.ContainsRune(b64Standard, n):
+			return standardState
 
-			case bytes.ContainsRune([]byte(b64UrlVariant), n):
-				d.backup()
-				return urlVariantState
+		case strings.ContainsRune(b64URL, n):
+			return urlState
 
-			case n == eof:
-				emit(d, itemAlphabet)
-				return nil
+		case n == eof:
+			emit(d, runAlphabet)
+			return nil
 
-			default:
-				d.backup()
-				start := d.start
-				emit(d, itemAlphabet)
-				ignorePadding(d, start)
-				return invalidState
-			}
+		default:
+			emit(d, runAlphabet)
+			return startState
 		}
 	}
 
-	variantState = func(d *decoder) stateFn {
-		for {
-			switch n := d.next(); {
-			case bytes.ContainsRune([]byte(b64Alphabet+b64Variant), n):
-				d.acceptRun(b64Alphabet + b64Variant)
-				continue
+	standardState = func(d *decoder) stateFn {
+		switch n := d.next(); {
+		case strings.ContainsRune(b64Alphabet+b64Standard+b64Padding, n):
+			return standardState
 
-			case n == eof:
-				emit(d, itemVariant)
-				return nil
+		case n == eof:
+			emit(d, runStandard)
+			return nil
 
-			default:
-				d.backup()
-				start := d.start
-				emit(d, itemVariant)
-				ignorePadding(d, start)
-				return invalidState
-			}
+		default:
+			emit(d, runStandard)
+			return startState
 		}
 	}
 
-	urlVariantState = func(d *decoder) stateFn {
-		for {
-			switch n := d.next(); {
-			case bytes.ContainsRune([]byte(b64Alphabet+b64UrlVariant), n):
-				d.acceptRun(b64Alphabet + b64UrlVariant)
-				continue
+	urlState = func(d *decoder) stateFn {
+		switch n := d.next(); {
+		case strings.ContainsRune(b64Alphabet+b64URL+b64Padding, n):
+			return urlState
 
-			case n == eof:
-				emit(d, itemUrlVariant)
-				return nil
+		case n == eof:
+			emit(d, runUrl)
+			return nil
 
-			default:
-				d.backup()
-				start := d.start
-				emit(d, itemUrlVariant)
-				ignorePadding(d, start)
-				return invalidState
-			}
+		default:
+			emit(d, runUrl)
+			return startState
 		}
 	}
 
@@ -235,7 +185,7 @@ func (b *Base64) Check() (acceptability float64) {
 	var tot int
 	for _, r := range b.input {
 		tot++
-		if bytes.ContainsRune([]byte(b64Alphabet+b64Variant+b64UrlVariant+b64Padding), r) {
+		if strings.ContainsRune(b64Alphabet+b64Standard+b64URL+b64Padding, r) {
 			c++
 		}
 	}

@@ -52,32 +52,6 @@ func (l *decoder) next() rune {
 	return r
 }
 
-// peek returns but does not consume the next rune in the input.
-func (l *decoder) peek() rune {
-	p := l.width
-	r := l.next()
-	l.backup()
-	l.width = p
-	return r
-}
-
-// backup steps back one rune. Can only be called once per call of next.
-func (l *decoder) backup() {
-	l.pos -= l.width
-}
-
-// ignore skips over the pending input before this point.
-func (l *decoder) ignore() {
-	l.start = l.pos
-}
-
-// acceptRun consumes a run of runes from the valid set.
-func (l *decoder) acceptRun(valid string) {
-	for bytes.ContainsRune([]byte(valid), l.next()) {
-	}
-	l.backup()
-}
-
 // decode runs the decode until EOF
 func (l *decoder) decode() []byte {
 	for l.state != nil {

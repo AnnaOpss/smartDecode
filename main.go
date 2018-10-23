@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/AnnaOpss/smartDecode/decode"
 	"github.com/empijei/cli/lg"
 )
 
@@ -53,22 +54,22 @@ func main() {
 func DecodeEncode(buf string, encode bool, codec string) (out string, codecUsed string, err error) {
 	// Build list of available codecs
 	var codecNames []string
-	for _, cc := range codecs {
-		codecNames = append(codecNames, cc.name)
+	for _, cc := range decode.Codecs {
+		codecNames = append(codecNames, cc.Name)
 	}
 	codecNamesStr := strings.Join(codecNames, ", ")
 
-	var c CodecC
+	var c decode.CodecC
 	if codec == "smart" {
 		if encode {
 			err = fmt.Errorf("Cannot 'smart' encode, please specify a codec")
 			return
 		}
-		c = SmartDecode(buf)
+		c = decode.SmartDecode(buf)
 	} else {
-		for _, cc := range codecs {
-			if cc.name == codec {
-				c = cc.codecCons(buf)
+		for _, cc := range decode.Codecs {
+			if cc.Name == codec {
+				c = cc.CodecCons(buf)
 			}
 		}
 		if c == nil {

@@ -1,4 +1,4 @@
-package main
+package decode
 
 import (
 	"strings"
@@ -9,9 +9,9 @@ import (
 
 type codecConstructor func(string) CodecC
 
-var codecs = []struct {
-	name      string
-	codecCons codecConstructor
+var Codecs = []struct {
+	Name      string
+	CodecCons codecConstructor
 }{
 	{
 		b16name,
@@ -67,8 +67,8 @@ type CodecC interface {
 func SmartDecode(input string) (c CodecC) {
 	var curvalue float64
 	//FIXME add a null codecC if no codecC is selected
-	for _, cc := range codecs {
-		tmp := cc.codecCons(input)
+	for _, cc := range Codecs {
+		tmp := cc.CodecCons(input)
 		if t := tmp.Check(); t > curvalue {
 			curvalue = t
 			c = tmp

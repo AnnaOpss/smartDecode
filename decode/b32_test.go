@@ -1,47 +1,52 @@
-package main
+package decode
 
 import (
 	"strings"
 	"testing"
 )
 
-var Base16Test = []struct {
+var base32Test = []struct {
 	in       string
 	eOut     string
 	eIsPrint bool
 }{
 	{
-		"666F6F626172",
+		"GFTG633CMFZA====",
+		"1foobar",
+		true,
+	},
+	{
+		"mzxw6ytboi======",
 		"foobar",
 		true,
 	},
 	{
-		"666f6f626172",
+		"mzxw6ytboi",
 		"foobar",
 		true,
 	},
 	{
-		"666F6F62617",
+		"MZXW6YTBO",
 		"fooba" + genInvalid(1),
 		false,
 	},
 	{
-		"666F6F626172.!666F6F626172",
+		"MZXW6YTBOI.!MZXW6YTBOI",
 		"foobar" + genInvalid(2) + "foobar",
 		false,
 	},
 	{
-		"666F6F62617.!666F6F62617",
+		"MZXW6YTBO.!MZXW6YTBO",
 		"fooba" + genInvalid(3) + "fooba" + genInvalid(1),
 		false,
 	},
 	{
-		"666F6F62617.!666F6F62617.",
+		"MZXW6YTBO.!MZXW6YTBO.",
 		"fooba" + genInvalid(3) + "fooba" + genInvalid(2),
 		false,
 	},
 	{
-		"666F6F62617.!666F6F62617.8",
+		"MZXW6YTBO.!MZXW6YTBO.8",
 		"fooba" + genInvalid(3) + "fooba" + genInvalid(3),
 		false,
 	},
@@ -62,17 +67,17 @@ var Base16Test = []struct {
 	},
 }
 
-var Base16EncodeTest = []struct {
+var base32EncodeTest = []struct {
 	in   string
 	eOut string
 }{
 	{
 		"foobar",
-		"666F6F626172",
+		"MZXW6YTBOI======",
 	},
 	{
 		"fooba▶︎",
-		"666F6F6261E296B6EFB88E",
+		"MZXW6YTB4KLLN35YRY======",
 	},
 	{
 		"",
@@ -80,23 +85,23 @@ var Base16EncodeTest = []struct {
 	},
 }
 
-var Base16CheckTest = []struct {
+var base32CheckTest = []struct {
 	in   string
 	eOut float64
 }{
 	{
-		"666F6F626172",
+		"MZXW6YTBOI",
 		1,
 	},
 	{
-		"666F6F62617",
+		"MZXW6YTBO",
 		0.91,
 	},
 }
 
-func TestB16Decode(t *testing.T) {
-	for _, tt := range Base16Test {
-		d := NewB16CodecC(tt.in)
+func TestB32Decode(t *testing.T) {
+	for _, tt := range base32Test {
+		d := NewB32CodecC(tt.in)
 		out := d.Decode()
 		if out != tt.eOut {
 			t.Errorf("Expected decoded value: '%s' but got '%s'", tt.eOut, out)
@@ -107,9 +112,9 @@ func TestB16Decode(t *testing.T) {
 	}
 }
 
-func TestB16Encode(t *testing.T) {
-	for _, tt := range Base16EncodeTest {
-		d := NewB16CodecC(tt.in)
+func TestB32Encode(t *testing.T) {
+	for _, tt := range base32EncodeTest {
+		d := NewB32CodecC(tt.in)
 		out := d.Encode()
 		if strings.ToUpper(out) != tt.eOut {
 			t.Errorf("Expected encoded value: '%s' but got '%s'", tt.eOut, out)
@@ -117,22 +122,12 @@ func TestB16Encode(t *testing.T) {
 	}
 }
 
-func TestB16Check(t *testing.T) {
-	for _, tt := range Base16CheckTest {
-		d := NewB16CodecC(tt.in)
+func TestB32Check(t *testing.T) {
+	for _, tt := range base32CheckTest {
+		d := NewB32CodecC(tt.in)
 		out := d.Check()
 		if CompareFloat(out, tt.eOut, 0.1) != 0 {
 			t.Errorf("Expected check value of '%f' but got '%f'", tt.eOut, out)
 		}
 	}
-}
-
-func CompareFloat(a, b float64, tolerance float64) int {
-	if a < b-tolerance {
-		return 1
-	}
-	if b > a+tolerance {
-		return -1
-	}
-	return 0
 }

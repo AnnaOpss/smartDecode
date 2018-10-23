@@ -78,8 +78,8 @@ func NewB64CodecC(in string) CodecC {
 
 	var (
 		startState    stateFn
-		standardState stateFn
 		alphabetState stateFn
+		standardState stateFn
 		urlState      stateFn
 	)
 

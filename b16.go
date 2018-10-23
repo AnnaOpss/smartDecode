@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"encoding/hex"
+	"strings"
 )
 
 const b16Alphabet = "0123456789abcdefABCDEF"
@@ -19,19 +19,19 @@ type Base16 struct {
 // nolint: gocyclo
 func NewB16CodecC(in string) CodecC {
 	const (
-		itemInvalid runType = iota
-		itemAlphabet
+		runInvalid runType = iota
+		runAlphabet
 	)
 
 	// emit should write into output what was read up until this point
 	// and move l.start to l.pos
 	emit := func(d *decoder, t runType) {
-		token := d.input[d.start:d.pos]
+		token := d.input[d.start : d.pos-d.width]
 
 		var decodefunc func(string) []byte
 
 		switch t {
-		case itemAlphabet:
+		case runAlphabet:
 			decodefunc = func(in string) []byte {
 				if len(in) < 2 {
 					return []byte(genInvalid(len(in)))
@@ -54,64 +54,48 @@ func NewB16CodecC(in string) CodecC {
 				return buf
 			}
 
-		case itemInvalid:
+		case runInvalid:
 			decodefunc = func(in string) []byte {
 				return []byte(genInvalid(len(in)))
 			}
 		}
 
 		d.out.Write(decodefunc(token))
-		d.start = d.pos
+		d.start = d.pos - d.width
 	}
 
 	var (
 		startState    stateFn
-		invalidState  stateFn
 		alphabetState stateFn
 	)
 
 	startState = func(d *decoder) stateFn {
-		switch n := d.peek(); {
-		case bytes.ContainsRune([]byte(b16Alphabet), n):
+		switch n := d.next(); {
+		case strings.ContainsRune(b16Alphabet, n):
+			emit(d, runInvalid)
 			return alphabetState
+
 		case n == eof:
+			emit(d, runInvalid)
 			return nil
+
 		default:
-			return invalidState
-		}
-	}
-
-	invalidState = func(d *decoder) stateFn {
-		for {
-			switch n := d.next(); {
-			case bytes.ContainsRune([]byte(b16Alphabet), n):
-				d.backup()
-				emit(d, itemInvalid)
-				return alphabetState
-
-			case n == eof:
-				emit(d, itemInvalid)
-				return nil
-			}
+			return startState
 		}
 	}
 
 	alphabetState = func(d *decoder) stateFn {
-		for {
-			switch n := d.next(); {
-			case bytes.ContainsRune([]byte(b16Alphabet), n):
-				d.acceptRun(b16Alphabet)
-				continue
+		switch n := d.next(); {
+		case strings.ContainsRune(b16Alphabet, n):
+			return alphabetState
 
-			case n == eof:
-				emit(d, itemAlphabet)
-				return nil
+		case n == eof:
+			emit(d, runAlphabet)
+			return nil
 
-			default:
-				d.backup()
-				emit(d, itemAlphabet)
-				return invalidState
-			}
+		default:
+			emit(d, runAlphabet)
+			return startState
 		}
 	}
 
@@ -142,7 +126,7 @@ func (b *Base16) Check() (acceptability float64) {
 	var tot int
 	for _, r := range b.input {
 		tot++
-		if bytes.ContainsRune([]byte(b16Alphabet), r) {
+		if strings.ContainsRune(b16Alphabet, r) {
 			c++
 		}
 	}

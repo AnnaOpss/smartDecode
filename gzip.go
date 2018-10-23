@@ -17,7 +17,7 @@ type gzipDec struct {
 	input string
 }
 
-// NewGzipCodecC state machine to decompress a gzip compressed file
+// NewGzipCodecC initialize a new gzip decoder object
 func NewGzipCodecC(in string) CodecC {
 	return &gzipDec{
 		input: in,

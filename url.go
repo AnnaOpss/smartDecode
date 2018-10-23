@@ -12,7 +12,7 @@ type URL struct {
 	input string
 }
 
-// NewURLCodecC state machine to smartly decode a string with invalid chars
+// NewURLCodecC initialize a new URL object
 func NewURLCodecC(in string) CodecC {
 	return &URL{
 		input: in,
